@@ -20,7 +20,7 @@
 
     <!-- Информация о режиме (только в разработке) -->
     <div v-if="!isTelegram" class="dev-mode">
-      <p>⚡ Режим разработки ((кек)вне Telegram)</p>
+      <p>⚡ Режим разработки ((__кек)вне Telegram)</p>
       <button @click="simulateTelegramData" class="dev-button">
         Имитировать данные Telegram
       </button>
