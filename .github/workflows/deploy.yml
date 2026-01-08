@@ -42,4 +42,5 @@ jobs:
       # 7. Деплой в Object Storage
       - name: Deploy to Object Storage
         run: |
-          yc storage s3 sync dist/ s3://miniappbuck/ --delete
+          yc storage s3 rm s3://miniappbuck/ --recursive || true
+          yc storage s3 cp dist/ s3://miniappbuck/ --recursive
