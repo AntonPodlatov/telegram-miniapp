@@ -10,25 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # 1. Забираем код
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # 2. Node.js 20 (ОБЯЗАТЕЛЬНО для Vite)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
-      - run: npm ci
-      - run: npm run build
+      # 3. Установка зависимостей
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Install YC CLI
+      # 4. Сборка Vue
+      - name: Build project
+        run: npm run build
+
+      # 5. Установка Yandex Cloud CLI
+      - name: Install Yandex Cloud CLI
         run: |
           curl https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
-      - name: Auth YC
+      # 6. Авторизация через OAuth-токен
+      - name: Auth Yandex Cloud
         run: |
           yc config set token ${{ secrets.YC_TOKEN }}
-          yc config set service-account-key key.json
 
-      - name: Deploy
+      # 7. Деплой в Object Storage
+      - name: Deploy to Object Storage
         run: |
           yc storage s3 sync dist/ s3://miniappbuck/ --delete
