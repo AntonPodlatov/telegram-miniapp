@@ -1,3 +1,4 @@
+//src/views/tabs/SwipeTab.vue
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import SwipeDeck from '../components/SwipeDeck.vue'
@@ -37,23 +38,25 @@ const profiles = ref<Profile[]>([
   }
 ])
 
-const index = ref(0)
-const history = ref<number[]>([])
+const index = ref(0);
+const history = ref<number[]>([]);
 
-const current = computed(() => profiles.value[index.value])
-const next = computed(() => profiles.value[index.value + 1])
+const current = computed(() => profiles.value[index.value]);
+const next = computed(() => profiles.value[index.value + 1]);
 
 const onSwipe = (type: 'like' | 'dislike') => {
-  history.value.push(index.value)
+  history.value.push(index.value);
 
   setTimeout(() => {
-    index.value++
-  }, 250)
+    index.value++;
+  }, 250);
 }
 
 const back = () => {
-  const prev = history.value.pop()
-  if (prev !== undefined) index.value = prev
+  const prev = history.value.pop();
+  if (prev !== undefined) {
+    index.value = prev;
+  }
 }
 </script>
 
