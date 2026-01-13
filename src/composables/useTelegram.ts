@@ -1,207 +1,157 @@
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import type { EventNames } from '@twa-dev/types';
 
-export function useTelegram() {
-    const isTelegram = ref(false)
-    const user = ref<any>(null)
-    const isReady = ref(false)
-    const tg = ref<any>(null)
-    const mainButton = ref<any>(null)
-    const backButton = ref<any>(null)
+let instance: ReturnType<typeof createTelegram> | null = null;
 
-    // Инициализация Telegram Web App
-    const initTelegram = () => {
+function createTelegram() {
+    const isReady = ref(false);
+    const theme = ref<'light' | 'dark'>('light');
+    const viewportHeight = ref(0);
+    const isExpanded = ref(false);
+
+    const isTelegram = computed(() => {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        const tg = window.Telegram?.WebApp;
+
+        return !!tg && tg.initData !== '';
+    });
+
+    const webApp = computed(() => {
+        if (isTelegram.value && window.Telegram && window.Telegram.WebApp) {
+            return window.Telegram.WebApp;
+        } else {
+            return null;
+        }
+    });
+
+    const init = () => {
+        if (!webApp.value || isReady.value) {
+            return;
+        }
+
         try {
-            // Проверяем, запущено ли в Telegram
-            if (window.Telegram?.WebApp) {
-                tg.value = window.Telegram.WebApp
-                isTelegram.value = true
+            webApp.value.ready();
+            webApp.value.expand();
 
-                // Получаем данные пользователя
-                user.value = tg.value.initDataUnsafe?.user || null
+            theme.value = webApp.value.colorScheme;
+            viewportHeight.value = webApp.value.viewportHeight;
+            isExpanded.value = webApp.value.isExpanded;
+            isReady.value = true;
 
-                // Инициализируем кнопки
-                initButtons()
-
-                // Настраиваем интерфейс
-                setupTelegramUI()
-
-                console.log('Telegram Web App инициализирован', user.value)
-            } else {
-                console.warn('Запущено вне Telegram. Режим разработки.')
-                // Заглушка для разработки
-                user.value = {
-                    id: 123456789,
-                    first_name: 'Тестовый',
-                    last_name: 'Пользователь',
-                    username: 'test_user',
-                    language_code: 'ru'
-                }
-            }
-
-            isReady.value = true
-        } catch (error) {
-            console.error('Ошибка инициализации Telegram:', error)
-            isReady.value = true
+            console.log('[Telegram] WebApp ready');
+        } catch (e) {
+            console.error('[Telegram] init error', e);
         }
     }
 
-    // Инициализация кнопок
-    const initButtons = () => {
-        if (!isTelegram.value || !tg.value) return
+    /* ---------------- events ---------------- */
 
-        // Создаем заглушки для кнопок если нет нативных методов
-        mainButton.value = {
-            show: () => {
-                if (tg.value?.MainButton) {
-                    tg.value.MainButton.show()
-                }
-            },
-            hide: () => {
-                if (tg.value?.MainButton) {
-                    tg.value.MainButton.hide()
-                }
-            },
-            setText: (text: string) => {
-                if (tg.value?.MainButton) {
-                    tg.value.MainButton.setText(text)
-                }
-            },
-            onClick: (callback: () => void) => {
-                if (tg.value?.MainButton) {
-                    tg.value.MainButton.onClick(callback)
-                }
-            },
-            showProgress: () => {
-                if (tg.value?.MainButton) {
-                    tg.value.MainButton.showProgress()
-                }
-            },
-            hideProgress: () => {
-                if (tg.value?.MainButton) {
-                    tg.value.MainButton.hideProgress()
-                }
-            }
+    const handlers = new Map<EventNames, (...args: any[]) => void>();
+
+    const onEvent = <T extends EventNames>(name: T, cb: (...args: any[]) => void) => {
+        if (!webApp.value) {
+            return;
         }
 
-        backButton.value = {
-            show: () => {
-                if (tg.value?.BackButton) {
-                    tg.value.BackButton.show()
-                }
-            },
-            hide: () => {
-                if (tg.value?.BackButton) {
-                    tg.value.BackButton.hide()
-                }
-            },
-            onClick: (callback: () => void) => {
-                if (tg.value?.BackButton) {
-                    tg.value.BackButton.onClick(callback)
-                }
-            }
+        const prev = handlers.get(name);
+
+        if (prev) {
+            webApp.value.offEvent(name, prev);
         }
+
+        handlers.set(name, cb);
+        webApp.value.onEvent(name, cb);
     }
 
-    // Настройка UI элементов Telegram
-    const setupTelegramUI = () => {
-        if (!isTelegram.value || !tg.value) return
+    const offEvent = <T extends EventNames>(name: T) => {
+        if (!webApp.value) {
+            return;
+        }
 
-        // Расширяем на весь экран
-        tg.value.expand()
+        const cb = handlers.get(name);
 
-        // Устанавливаем цвет фона
-        tg.value.setBackgroundColor('#ffffff')
-
-        // Говорим Telegram, что приложение готово
-        tg.value.ready()
-    }
-
-    // Метод для отправки данных в Telegram
-    const sendDataToTelegram = (data: any) => {
-        if (isTelegram.value && tg.value) {
-            tg.value.sendData(JSON.stringify(data))
-        } else {
-            console.log('Данные для отправки в Telegram:', data)
+        if (cb) {
+            webApp.value.offEvent(name, cb as any);
+            handlers.delete(name);
         }
     }
-
-    // Метод для закрытия приложения
-    const closeApp = () => {
-        if (isTelegram.value && tg.value) {
-            tg.value.close()
-        }
-    }
-
-    // Метод для показа алерта
-    const showAlert = (message: string) => {
-        if (isTelegram.value && tg.value) {
-            tg.value.showAlert(message)
-        } else {
-            alert(message)
-        }
-    }
-
-    // Методы для работы с главной кнопкой
-    const showMainButton = (text: string = 'Подтвердить', onClick?: () => void) => {
-        if (mainButton.value) {
-            mainButton.value.setText(text)
-            if (onClick) {
-                mainButton.value.onClick(onClick)
-            }
-            mainButton.value.show()
-        } else if (!isTelegram.value) {
-            console.log('Main button would show with text:', text)
-        }
-    }
-
-    const hideMainButton = () => {
-        if (mainButton.value) {
-            mainButton.value.hide()
-        } else if (!isTelegram.value) {
-            console.log('Main button would hide')
-        }
-    }
-
-    // Методы для работы с кнопкой "Назад"
-    const showBackButton = (onClick?: () => void) => {
-        if (backButton.value) {
-            if (onClick) {
-                backButton.value.onClick(onClick)
-            }
-            backButton.value.show()
-        }
-    }
-
-    const hideBackButton = () => {
-        if (backButton.value) {
-            backButton.value.hide()
-        }
-    }
-
-    // Геттер для telegram объекта с безопасной проверкой
-    const telegram = computed(() => {
-        if (isTelegram.value && window.Telegram?.WebApp) {
-            return window.Telegram.WebApp
-        }
-        return null
-    })
 
     onMounted(() => {
-        initTelegram()
-    })
+        init();
+
+        if (!webApp.value) return;
+
+        onEvent('themeChanged', () => theme.value = webApp.value!.colorScheme);
+
+        onEvent('viewportChanged', () => {
+            viewportHeight.value = webApp.value!.viewportHeight;
+            isExpanded.value = webApp.value!.isExpanded;
+        });
+    });
+
+    onUnmounted(() => handlers.forEach((_, key) => offEvent(key)));
+
+    /* ---------------- helpers ---------------- */
+
+    const closeApp = () => webApp.value?.close();
+
+    const showAlert = (message: string) => webApp.value ?
+        webApp.value.showAlert(message) :
+        alert(message);
+
+
+    const showConfirm = (message: string): Promise<boolean> => !webApp.value ?
+        Promise.resolve(confirm(message)) :
+        new Promise(resolve => webApp.value!.showConfirm(message, resolve));
+
+
+    const sendData = (data: unknown) => {
+        if (!webApp.value) {
+            console.log('[Telegram] mock sendData', data);
+            return;
+        }
+
+        try {
+            webApp.value.sendData(JSON.stringify(data));
+        } catch (e) {
+            console.error('[Telegram] sendData error', e);
+        }
+    }
+
+    const user = computed(() => webApp.value?.initDataUnsafe?.user ?? null);
+    const userId = computed(() => user.value?.id ?? null);
+    const launchParams = computed(() => webApp.value?.initDataUnsafe ?? {});
 
     return {
         isTelegram,
-        user,
         isReady,
-        tg,
-        telegram,
-        sendDataToTelegram,
+        theme,
+        viewportHeight,
+        isExpanded,
+
+        webApp,
+        user,
+        userId,
+        launchParams,
+
+        init,
         closeApp,
         showAlert,
-        showMainButton,
-        hideMainButton,
-        showBackButton,
-        hideBackButton
+        showConfirm,
+        sendData,
+
+        onEvent,
+        offEvent
     }
+}
+
+export function useTelegram() {
+    if (!instance) {
+        instance = createTelegram();
+    }
+
+    return instance;
 }

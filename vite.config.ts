@@ -2,7 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-const repoName = 'telegram-miniapp' // <-- ИМЯ РЕПОЗИТОРИЯ
+const repoName = 'telegram-miniapp'
 
 export default defineConfig(({ mode }) => ({
   plugins: [vue()],
@@ -13,9 +13,14 @@ export default defineConfig(({ mode }) => ({
     },
   },
 
-  // ⚠️ КРИТИЧНО для GitHub Pages
   base: mode === 'production' ? `/${repoName}/` : '/',
-
+  server: {
+    host: true,
+    allowedHosts: [
+      '.ngrok-free.app',
+      '.trycloudflare.com'
+    ],
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
